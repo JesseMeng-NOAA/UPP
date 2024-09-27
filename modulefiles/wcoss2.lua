@@ -26,10 +26,10 @@ load(pathJoin("zlib", zlib_ver))
 g2_ver=os.getenv("g2_ver") or "3.5.1"
 g2tmpl_ver=os.getenv("g2tmpl_ver") or "1.13.0"
 bacio_ver=os.getenv("bacio_ver") or "2.4.1"
-ip_ver=os.getenv("ip_ver") or "4.0.0"
+ip_ver=os.getenv("ip_ver") or "3.3.3"
 sp_ver=os.getenv("sp_ver") or "2.3.3"
 crtm_ver=os.getenv("crtm_ver") or "2.4.0.1"
-w3emc_ver=os.getenv("w3emc_ver") or "2.12.0"
+w3emc_ver=os.getenv("w3emc_ver") or "2.9.2"
 load(pathJoin("g2", g2_ver))
 load(pathJoin("g2tmpl", g2tmpl_ver))
 load(pathJoin("bacio", bacio_ver))
@@ -44,6 +44,9 @@ wrf_io_ver=os.getenv("wrf_io_ver") or "1.2.0"
 load(pathJoin("nemsio", nemsio_ver))
 load(pathJoin("sigio", sigio_ver))
 load(pathJoin("wrf_io", wrf_io_ver))
+
+python_ver="3.8.6"
+load(pathJoin("python", python_ver))
 
 setenv("CC","cc")
 setenv("CXX","CC")
