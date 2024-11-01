@@ -185,6 +185,11 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES "^(Intel)$")
   set(CMAKE_C_FLAGS "-I/apps/spack/python/3.8.6/intel/19.1.3.304/pjn2nzkjvqgmjw4hmyz43v5x4jbxjzpk/include/python3.8 -I/apps/spack/python/3.8.6/intel/19.1.3.304/pjn2nzkjvqgmjw4hmyz43v5x4jbxjzpk/include/python3.8  -fno-strict-aliasing -Wsign-compare -Wunreachable-code -fPIC -DNDEBUG -g  -O3 -Wall")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -cxxlib -L/apps/spack/python/3.8.6/intel/19.1.3.304/pjn2nzkjvqgmjw4hmyz43v5x4jbxjzpk/lib -lm -lpython3.8")
   set_source_files_properties(INITPOST_GFS_NEMS_MPIIO.f INITPOST_NETCDF.f INITPOST_NEMS.f PROPERTIES COMPILE_FLAGS -qoverride-limits)
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "^(IntelLLVM)$")
+  set(CMAKE_Fortran_FLAGS
+      "-g -traceback -fp-model precise -free -convert big_endian")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O3")
+  set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -check bounds -check pointers -check shape -check stack -check uninit")
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
   set(CMAKE_Fortran_FLAGS
       "-g -fbacktrace -ffree-form -ffree-line-length-none -fconvert=big-endian")
