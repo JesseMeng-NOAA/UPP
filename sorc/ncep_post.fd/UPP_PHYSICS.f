@@ -4633,6 +4633,7 @@
       DO J=JSTA,JEND
       DO I=ISTA,IEND
          SLR8 = SPVAL
+!   SLR8=8.88888888
       IF(TFD(I,J,1)<SPVAL .AND. UFD(I,J,1)<SPVAL .AND. VFD(I,J,1)<SPVAL) THEN
 
          TFD8(1)=TFD(I,J,1)
@@ -4643,7 +4644,9 @@
          SWND8(3)=sqrt(UFD(I,J,3)*UFD(I,J,3)+VFD(I,J,3)*VFD(I,J,3))
 
          CALL CALSLRRF(TFD8(2),TFD8(3),TFD8(1),SWND8(2),SWND8(3),SWND8(1),SLR8)
+
          SLR(I,J)=SLR8
+      
       ENDIF
       ENDDO
       ENDDO
