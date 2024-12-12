@@ -19,6 +19,8 @@
 !> calslr_roebber() computes snow solid-liquid-ratio slr using the Roebber algorithm.
 !>      
 !> calslr_uutah() computes snow solid-liquid-ratio slr using the UUtah Steenburgh algorithm.
+!>      
+!> calslr_uutah2() computes snow solid-liquid-ratio slr using the UUtah Steenburgh 2024 algorithm.
 !>   
 !> calvor() computes absolute vorticity.   
 !>      
@@ -33,6 +35,7 @@
 !> 2022-07-11 | Jesse Meng | CALSLR_ROEBBER
 !> 2023-02-14 | Jesse Meng | CALSLR_UUTAH     
 !> 2023-03-22 | Sam Trahan | Fix out-of-bounds access by not calling BOUND
+!> 2024-12-12 | Jesse Meng | CALSLR_UUTAH2     
 !>
 !> @author Jesse Meng @date 2020-05-20
   module upp_physics
@@ -48,7 +51,7 @@
   public :: CALRH
   public :: CALRH_GFS, CALRH_GSD, CALRH_NAM
   public :: CALRH_PW
-  public :: CALSLR_ROEBBER, CALSLR_UUTAH
+  public :: CALSLR_ROEBBER, CALSLR_UUTAH, CALSLR_UUTAH2
   public :: CALVOR
 
   public :: FPVSNEW
@@ -2809,7 +2812,7 @@
       DO J=JSTA,JEND
       DO I=ISTA,IEND
          PSFC(I,J)=PINT(I,J,NINT(LMH(I,J))+1)
-         PRES(I,J)=SLP(I,J)
+         PRES(I,J)=PSFC(I,J)
          QPF(I,J)=AVGPREC_CONT(I,J)*3600.*3.
          SWND(I,J)=SPVAL
          IF(U10(I,J)/=SPVAL .AND. V10(I,J)/=SPVAL) &
@@ -3043,10 +3046,10 @@
 
       if(lprob(i,j) < .67) then
          slrgrid2(i,j) = hprob(i,j)*8.0+mprob(i,j)*13.0+lprob(i,j)*18.0
-         slrgrid2(i,j) = slrgrid2(i,j)*p/(hprob(i,j)+mprob(i,j)+lprob(i,j))
+         slrgrid2(i,j) = slrgrid2(i,j)/(hprob(i,j)+mprob(i,j)+lprob(i,j))
       else
          slrgrid2(i,j) = hprob(i,j)*8.0+mprob(i,j)*13.0+lprob(i,j)*27.0
-         slrgrid2(i,j) = slrgrid2(i,j)*p/(hprob(i,j)+mprob(i,j)+lprob(i,j))
+         slrgrid2(i,j) = slrgrid2(i,j)/(hprob(i,j)+mprob(i,j)+lprob(i,j))
       endif
  
 !      slr(i,j) = climosub(i,j)
@@ -4466,12 +4469,12 @@
       ENDDO
       ENDDO
 
-      DO L=LM,1,-1
+      DO L=1,LM
 !$omp parallel do private(i,j)
       DO J=JSTA,JEND
       DO I=ISTA,IEND
          IF(TWET05(I,J) < 0) THEN
-            IF(TWET(I,J,L) <= 273.15+0.5) THEN
+            IF(TWET(I,J,L) >= 273.15+0.5) THEN
                ZWET(I,J)=ZMID(I,J,L)
                TWET05(I,J)=1
             ENDIF
@@ -4495,6 +4498,222 @@
       DEALLOCATE (TWET)
 
       END SUBROUTINE CALSLR_UUTAH
+!
+!-------------------------------------------------------------------------------------
+!
+!> Computes snow solid-liquid-ratio slr using the Steenburgh 2024 algorithm.
+!>
+!> Obtained the code and data from U of Utah Jim Steenburgh, 
+!> Peter Veals, and Michael Pletcher.
+!>
+!> @param[out] SLR real Solid snow to liquid ratio
+!> 
+!> ### Program history log:
+!> Date | Programmer | Comments
+!> -----|------------|---------
+!> 2024-11-15 | Jesse Meng | Initial
+!>
+!> @author Jesse Meng @date 2024-11-15
+
+      SUBROUTINE CALSLR_UUTAH2(SLR)
+
+      use vrbls3d,    only: ZINT,ZMID,PMID,T,Q,UH,VH
+      use masks,      only: LMH,HTM,GDLAT,GDLON
+      use ctlblk_mod, only: ME,ISTA,IEND,JSTA,JEND,ista_2l,iend_2u,jsta_2l,jend_2u,&
+                            LM,SPVAL
+
+      implicit none
+
+      real,dimension(ista_2l:iend_2u,jsta_2l:jend_2u),intent(out) :: slr !slr=snod/weasd=1000./sndens
+
+      integer, parameter :: NFL=8
+      real,    parameter :: HTFL(NFL)=(/ 300., 600., 900., 1200., &
+                                        1500.,1800.,2100., 2400. /)
+      real,dimension(ISTA:IEND,JSTA:JEND,NFL) :: TFD,UFD,VFD,PFD,QFD,RHFD
+      real,dimension(ISTA:IEND,JSTA:JEND)     :: ZSFC
+
+      real LHL(NFL),DZABH(NFL),SWND(NFL)
+      real HTSFC,HTABH,DZ,RDZ,DELT,DELU,DELV,DELP,DELQ
+
+      real, parameter :: s03 = 0.2113589753880838
+      real, parameter :: s06 =-0.3113780353218734
+      real, parameter :: s09 = 0.030295727788329747
+      real, parameter :: s12 = 0.14200126274780872
+      real, parameter :: s15 =-0.3036948150474089
+      real, parameter :: s18 = 0.36742135429588796
+      real, parameter :: s21 =-0.45316009735021756
+      real, parameter :: s24 = 0.2732018488504477
+      real, parameter :: t03 = 0.08908223593334653
+      real, parameter :: t06 =-0.24948847161912707
+      real, parameter :: t09 = 0.14521457107694088
+      real, parameter :: t12 = 0.17265963006356744
+      real, parameter :: t15 =-0.3741056734263027
+      real, parameter :: t18 = 0.39704205782424823
+      real, parameter :: t21 =-0.36577798019766355
+      real, parameter :: t24 =-0.12603742209070648
+      real, parameter :: r03 =-0.08523012915185951
+      real, parameter :: r06 = 0.0879493556495648
+      real, parameter :: r09 =-0.04508491900731953
+      real, parameter :: r12 = 0.0347032913014311
+      real, parameter :: r15 =-0.031872141634061976
+      real, parameter :: r18 = 0.05199814866971972
+      real, parameter :: r21 =-0.02739515218481534
+      real, parameter :: r24 =-0.0338838765912164
+      real, parameter ::   b = 97.96209163
+
+      integer,dimension(ISTA:IEND,JSTA:JEND) :: KARR
+      integer,dimension(ISTA:IEND,JSTA:JEND) :: TWET05
+      real,dimension(ISTA:IEND,JSTA:JEND)    :: ZWET
+
+      REAL, ALLOCATABLE :: TWET(:,:,:)
+
+      integer I,J,L,LLMH,LMHK,IFD
+!
+!***************************************************************************
+!
+      ALLOCATE(TWET(ISTA_2L:IEND_2U,JSTA_2L:JEND_2U,LM))
+
+      DO IFD = 1,NFL
+!$omp parallel do private(i,j)      
+        DO J=JSTA,JEND
+          DO I=ISTA,IEND
+             ZSFC(I,J)        = SPVAL
+             TFD(I,J,IFD)     = SPVAL
+             UFD(I,J,IFD)     = SPVAL
+             VFD(I,J,IFD)     = SPVAL
+             PFD(I,J,IFD)     = SPVAL
+             QFD(I,J,IFD)     = SPVAL
+            RHFD(I,J,IFD)     = SPVAL
+          ENDDO
+        ENDDO
+      ENDDO        
+
+!        LOCATE VERTICAL INDICES OF T,U,V, LEVEL JUST
+!        ABOVE EACH FD LEVEL.
+
+      DO J=JSTA,JEND
+      DO I=ISTA,IEND
+      IF(ZINT(I,J,LM+1)<SPVAL) THEN
+         ZSFC(I,J) = ZINT(I,J,LM+1)
+         HTSFC = ZINT(I,J,LM+1)
+         LLMH  = NINT(LMH(I,J))
+      IFD = 1
+      DO L = LLMH,1,-1
+         HTABH = ZMID(I,J,L)-HTSFC
+         IF(HTABH>HTFL(IFD)) THEN
+            LHL(IFD) = L
+            DZABH(IFD) = HTABH-HTFL(IFD)
+            IFD = IFD + 1
+         ENDIF
+         IF(IFD > NFL) exit
+      ENDDO
+
+!        COMPUTE T, U, V AT FD LEVELS.
+
+      DO IFD = 1,NFL 
+         L = LHL(IFD)
+         IF (L<LM .AND. T(I,J,L)<SPVAL .AND. UH(I,J,L)<SPVAL .AND. VH(I,J,L)<SPVAL) THEN
+           DZ   = ZMID(I,J,L)-ZMID(I,J,L+1)
+           RDZ  = 1./DZ
+           DELT = T(I,J,L)-T(I,J,L+1)
+           TFD(I,J,IFD) = T(I,J,L) - DELT*RDZ*DZABH(IFD)
+           DELU = UH(I,J,L)-UH(I,J,L+1)
+           DELV = VH(I,J,L)-VH(I,J,L+1)
+           UFD(I,J,IFD) = UH(I,J,L) - DELU*RDZ*DZABH(IFD)
+           VFD(I,J,IFD) = VH(I,J,L) - DELV*RDZ*DZABH(IFD)
+           DELP = PMID(I,J,L)-PMID(I,J,L+1)
+           PFD(I,J,IFD) = PMID(I,J,L) - DELP*RDZ*DZABH(IFD)
+           DELQ = Q(I,J,L)-Q(I,J,L+1)
+           QFD(I,J,IFD) = Q(I,J,L) - DELQ*RDZ*DZABH(IFD)
+         ELSE
+           TFD(I,J,IFD) = T(I,J,L)
+           UFD(I,J,IFD) = UH(I,J,L)
+           VFD(I,J,IFD) = VH(I,J,L)
+           PFD(I,J,IFD) = PMID(I,J,L)
+           QFD(I,J,IFD) = Q(I,J,L)
+         ENDIF
+      ENDDO
+      ENDIF !IF(ZINT(I,J,LM+1)<SPVAL)
+      ENDDO !I loop
+      ENDDO !J loop
+
+      DO IFD = 1,NFL
+         CALL CALRH(PFD(:,:,IFD),TFD(:,:,IFD),QFD(:,:,IFD),RHFD(:,:,IFD))
+      ENDDO
+
+!        COMPUTE SLR
+
+      SLR = SPVAL
+
+!$omp parallel do private(i,j)      
+      DO J=JSTA,JEND
+      DO I=ISTA,IEND
+      IF(ZSFC(I,J)<SPVAL) THEN
+      IF(TFD(I,J,1)<SPVAL .AND. UFD(I,J,1)<SPVAL .AND. VFD(I,J,1)<SPVAL) THEN
+         SWND(1)=sqrt(UFD(I,J,1)*UFD(I,J,1)+VFD(I,J,1)*VFD(I,J,1))
+         SWND(2)=sqrt(UFD(I,J,2)*UFD(I,J,2)+VFD(I,J,2)*VFD(I,J,2))
+         SWND(3)=sqrt(UFD(I,J,3)*UFD(I,J,3)+VFD(I,J,3)*VFD(I,J,3))
+         SWND(4)=sqrt(UFD(I,J,4)*UFD(I,J,4)+VFD(I,J,4)*VFD(I,J,4))
+         SWND(5)=sqrt(UFD(I,J,5)*UFD(I,J,5)+VFD(I,J,5)*VFD(I,J,5))
+         SWND(6)=sqrt(UFD(I,J,6)*UFD(I,J,6)+VFD(I,J,6)*VFD(I,J,6))
+         SWND(7)=sqrt(UFD(I,J,7)*UFD(I,J,7)+VFD(I,J,7)*VFD(I,J,7))
+         SWND(8)=sqrt(UFD(I,J,8)*UFD(I,J,8)+VFD(I,J,8)*VFD(I,J,8))
+
+         SLR(I,J) = s03*SWND(1)+s06*SWND(2)+s09*SWND(3)+s12*SWND(4) &
+                  + s15*SWND(5)+s18*SWND(6)+s21*SWND(7)+s24*SWND(8) &
+                  + t03*TFD(I,J,1)+t06*TFD(I,J,2)+t09*TFD(I,J,3)+t12*TFD(I,J,4) &
+                  + t15*TFD(I,J,5)+t18*TFD(I,J,6)+t21*TFD(I,J,7)+t24*TFD(I,J,8) &
+                  + r03*RHFD(I,J,1)+r06*RHFD(I,J,2)+r09*RHFD(I,J,3)+r12*RHFD(I,J,4) &
+                  + r15*RHFD(I,J,5)+r18*RHFD(I,J,6)+r21*RHFD(I,J,7)+r24*RHFD(I,J,8) &
+                  + b
+         SLR(I,J) = max(SLR(I,J),3.)
+      ENDIF
+      ENDIF
+      ENDDO
+      ENDDO
+
+!        COMPUTE WETBULB TEMPERATURE AND SEARCH FOR TWET > 0.5C
+
+      KARR = 1
+      CALL WETBULB(T,Q,PMID,HTM,KARR,TWET)
+
+!$omp parallel do private(i,j)      
+      DO J=JSTA,JEND
+      DO I=ISTA,IEND
+         ZWET(I,J)=ZMID(I,J,LM)
+         TWET05(I,J)=-1
+      ENDDO
+      ENDDO
+
+      DO L=1,LM
+!$omp parallel do private(i,j)
+      DO J=JSTA,JEND
+      DO I=ISTA,IEND
+         IF(TWET05(I,J) < 0) THEN
+            IF(TWET(I,J,L) >= 273.15+0.5) THEN
+               ZWET(I,J)=ZMID(I,J,L)
+               TWET05(I,J)=1
+            ENDIF
+         ENDIF
+      ENDDO
+      ENDDO
+      ENDDO
+
+!$omp parallel do private(i,j,HTABH)      
+      DO J=JSTA,JEND
+      DO I=ISTA,IEND
+         IF(TWET05(I,J) > 0 .AND. SLR(I,J)<SPVAL) THEN
+            HTABH=ZWET(I,J)-ZINT(I,J,LM+1)
+            IF(HTABH<0.) HTABH=0.
+            SLR(I,J)=SLR(I,J)*(1.-HTABH/200.)
+            IF(SLR(I,J)<0.) SLR(I,J)=0.
+         ENDIF
+      ENDDO
+      ENDDO
+
+      DEALLOCATE (TWET)
+
+      END SUBROUTINE CALSLR_UUTAH2
 !
 !-------------------------------------------------------------------------------------
 !

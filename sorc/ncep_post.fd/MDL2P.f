@@ -75,7 +75,8 @@
                             IEND_2U, slrutah_on, gtg_on
       use rqstfld_mod, only: IGET, LVLS, ID, IAVBLFLD, LVLSXML
       use gridspec_mod, only: GRIDTYPE, MAPTYPE, DXVAL
-      use upp_physics, only: FPVSNEW, CALRH, CALVOR, CALSLR_ROEBBER, CALSLR_UUTAH
+      use upp_physics, only: FPVSNEW, CALRH, CALVOR, CALSLR_ROEBBER, CALSLR_UUTAH, &
+                             CALSLR_UUTAH2
 
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 !
@@ -4287,11 +4288,9 @@
 ! SNOW DESITY SOLID-LIQUID-RATION SLR
       IF ( IGET(1006)>0 ) THEN
          egrid1=spval
-         if(slrutah_on) then
-            call calslr_uutah(EGRID1)
-         else
-            call calslr_roebber(TPRS,RHPRS,EGRID1)
-         endif
+            call calslr_uutah2(EGRID1)
+!            call calslr_uutah(EGRID1)
+!            call calslr_roebber(TPRS,RHPRS,EGRID1)
 !$omp parallel do private(i,j) 
          do j=jsta,jend
          do i=ista,iend
