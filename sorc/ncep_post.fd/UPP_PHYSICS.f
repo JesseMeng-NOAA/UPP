@@ -4515,25 +4515,25 @@
 !>
 !> @author Jesse Meng @date 2024-11-15
 
-      SUBROUTINE CALSLR_UUTAH2(SLR)
+      subroutine calslr_uutah2(slr)
 
-      use vrbls3d,    only: ZINT,ZMID,PMID,T,Q,UH,VH
-      use masks,      only: LMH,HTM,GDLAT,GDLON
-      use ctlblk_mod, only: ME,ISTA,IEND,JSTA,JEND,ista_2l,iend_2u,jsta_2l,jend_2u,&
-                            LM,SPVAL
+      use vrbls3d,    only: zint,zmid,pmid,t,q,uh,vh
+      use masks,      only: lmh,htm,gdlat,gdlon
+      use ctlblk_mod, only: me,ista,iend,jsta,jend,ista_2l,iend_2u,jsta_2l,jend_2u,&
+                            lm,spval
 
       implicit none
 
       real,dimension(ista_2l:iend_2u,jsta_2l:jend_2u),intent(out) :: slr !slr=snod/weasd=1000./sndens
 
-      integer, parameter :: NFL=8
-      real,    parameter :: HTFL(NFL)=(/ 300., 600., 900., 1200., &
+      integer, parameter :: nfl=8
+      real,    parameter :: htfl(nfl)=(/ 300., 600., 900., 1200., &
                                         1500.,1800.,2100., 2400. /)
-      real,dimension(ISTA:IEND,JSTA:JEND,NFL) :: TFD,UFD,VFD,PFD,QFD,RHFD
-      real,dimension(ISTA:IEND,JSTA:JEND)     :: ZSFC
+      real,dimension(ista:iend,jsta:jend,nfl) :: tfd,ufd,vfd,pfd,qfd,rhfd
+      real,dimension(ista:iend,jsta:jend)     :: zsfc
 
-      real LHL(NFL),DZABH(NFL),SWND(NFL)
-      real HTSFC,HTABH,DZ,RDZ,DELT,DELU,DELV,DELP,DELQ
+      real lhl(nfl),dzabh(nfl),swnd(nfl)
+      real htsfc,htabh,dz,rdz,delt,delu,delv,delp,delq
 
       real, parameter :: s03 = 0.2113589753880838
       real, parameter :: s06 =-0.3113780353218734
@@ -4561,159 +4561,159 @@
       real, parameter :: r24 =-0.0338838765912164
       real, parameter ::   b = 97.96209163
 
-      integer,dimension(ISTA:IEND,JSTA:JEND) :: KARR
-      integer,dimension(ISTA:IEND,JSTA:JEND) :: TWET05
-      real,dimension(ISTA:IEND,JSTA:JEND)    :: ZWET
+      integer,dimension(ista:iend,jsta:jend) :: karr
+      integer,dimension(ista:iend,jsta:jend) :: twet05
+      real,dimension(ista:iend,jsta:jend)    :: zwet
 
-      REAL, ALLOCATABLE :: TWET(:,:,:)
+      real, allocatable :: twet(:,:,:)
 
-      integer I,J,L,LLMH,LMHK,IFD
+      integer i,j,l,llmh,lmhk,ifd
 !
 !***************************************************************************
 !
-      ALLOCATE(TWET(ISTA_2L:IEND_2U,JSTA_2L:JEND_2U,LM))
+      allocate(twet(ista_2l:iend_2u,jsta_2l:jend_2u,lm))
 
-      DO IFD = 1,NFL
+      do ifd = 1,nfl
 !$omp parallel do private(i,j)      
-        DO J=JSTA,JEND
-          DO I=ISTA,IEND
-             ZSFC(I,J)        = SPVAL
-             TFD(I,J,IFD)     = SPVAL
-             UFD(I,J,IFD)     = SPVAL
-             VFD(I,J,IFD)     = SPVAL
-             PFD(I,J,IFD)     = SPVAL
-             QFD(I,J,IFD)     = SPVAL
-            RHFD(I,J,IFD)     = SPVAL
-          ENDDO
-        ENDDO
-      ENDDO        
+        do j=jsta,jend
+          do i=ista,iend
+             zsfc(i,j)        = spval
+             tfd(i,j,ifd)     = spval
+             ufd(i,j,ifd)     = spval
+             vfd(i,j,ifd)     = spval
+             pfd(i,j,ifd)     = spval
+             qfd(i,j,ifd)     = spval
+            rhfd(i,j,ifd)     = spval
+          enddo
+        enddo
+      enddo        
 
-!        LOCATE VERTICAL INDICES OF T,U,V, LEVEL JUST
-!        ABOVE EACH FD LEVEL.
+!        locate vertical indices of t,u,v, level just
+!        above each fd level.
 
-      DO J=JSTA,JEND
-      DO I=ISTA,IEND
-      IF(ZINT(I,J,LM+1)<SPVAL) THEN
-         ZSFC(I,J) = ZINT(I,J,LM+1)
-         HTSFC = ZINT(I,J,LM+1)
-         LLMH  = NINT(LMH(I,J))
-      IFD = 1
-      DO L = LLMH,1,-1
-         HTABH = ZMID(I,J,L)-HTSFC
-         IF(HTABH>HTFL(IFD)) THEN
-            LHL(IFD) = L
-            DZABH(IFD) = HTABH-HTFL(IFD)
-            IFD = IFD + 1
-         ENDIF
-         IF(IFD > NFL) exit
-      ENDDO
+      do j=jsta,jend
+      do i=ista,iend
+      if(zint(i,j,lm+1)<spval) then
+         zsfc(i,j) = zint(i,j,lm+1)
+         htsfc = zint(i,j,lm+1)
+         llmh  = nint(lmh(i,j))
+      ifd = 1
+      do l = llmh,1,-1
+         htabh = zmid(i,j,l)-htsfc
+         if(htabh>htfl(ifd)) then
+            lhl(ifd) = l
+            dzabh(ifd) = htabh-htfl(ifd)
+            ifd = ifd + 1
+         endif
+         if(ifd > nfl) exit
+      enddo
 
-!        COMPUTE T, U, V AT FD LEVELS.
+!        compute t, u, v at fd levels.
 
-      DO IFD = 1,NFL 
-         L = LHL(IFD)
-         IF (L<LM .AND. T(I,J,L)<SPVAL .AND. UH(I,J,L)<SPVAL .AND. VH(I,J,L)<SPVAL) THEN
-           DZ   = ZMID(I,J,L)-ZMID(I,J,L+1)
-           RDZ  = 1./DZ
-           DELT = T(I,J,L)-T(I,J,L+1)
-           TFD(I,J,IFD) = T(I,J,L) - DELT*RDZ*DZABH(IFD)
-           DELU = UH(I,J,L)-UH(I,J,L+1)
-           DELV = VH(I,J,L)-VH(I,J,L+1)
-           UFD(I,J,IFD) = UH(I,J,L) - DELU*RDZ*DZABH(IFD)
-           VFD(I,J,IFD) = VH(I,J,L) - DELV*RDZ*DZABH(IFD)
-           DELP = PMID(I,J,L)-PMID(I,J,L+1)
-           PFD(I,J,IFD) = PMID(I,J,L) - DELP*RDZ*DZABH(IFD)
-           DELQ = Q(I,J,L)-Q(I,J,L+1)
-           QFD(I,J,IFD) = Q(I,J,L) - DELQ*RDZ*DZABH(IFD)
-         ELSE
-           TFD(I,J,IFD) = T(I,J,L)
-           UFD(I,J,IFD) = UH(I,J,L)
-           VFD(I,J,IFD) = VH(I,J,L)
-           PFD(I,J,IFD) = PMID(I,J,L)
-           QFD(I,J,IFD) = Q(I,J,L)
-         ENDIF
-      ENDDO
-      ENDIF !IF(ZINT(I,J,LM+1)<SPVAL)
-      ENDDO !I loop
-      ENDDO !J loop
+      do ifd = 1,nfl 
+         l = lhl(ifd)
+         if (l<lm .and. t(i,j,l)<spval .and. uh(i,j,l)<spval .and. vh(i,j,l)<spval) then
+           dz   = zmid(i,j,l)-zmid(i,j,l+1)
+           rdz  = 1./dz
+           delt = t(i,j,l)-t(i,j,l+1)
+           tfd(i,j,ifd) = t(i,j,l) - delt*rdz*dzabh(ifd)
+           delu = uh(i,j,l)-uh(i,j,l+1)
+           delv = vh(i,j,l)-vh(i,j,l+1)
+           ufd(i,j,ifd) = uh(i,j,l) - delu*rdz*dzabh(ifd)
+           vfd(i,j,ifd) = vh(i,j,l) - delv*rdz*dzabh(ifd)
+           delp = pmid(i,j,l)-pmid(i,j,l+1)
+           pfd(i,j,ifd) = pmid(i,j,l) - delp*rdz*dzabh(ifd)
+           delq = q(i,j,l)-q(i,j,l+1)
+           qfd(i,j,ifd) = q(i,j,l) - delq*rdz*dzabh(ifd)
+         else
+           tfd(i,j,ifd) = t(i,j,l)
+           ufd(i,j,ifd) = uh(i,j,l)
+           vfd(i,j,ifd) = vh(i,j,l)
+           pfd(i,j,ifd) = pmid(i,j,l)
+           qfd(i,j,ifd) = q(i,j,l)
+         endif
+      enddo
+      endif !if(zint(i,j,lm+1)<spval)
+      enddo !i loop
+      enddo !j loop
 
-      DO IFD = 1,NFL
-         CALL CALRH(PFD(:,:,IFD),TFD(:,:,IFD),QFD(:,:,IFD),RHFD(:,:,IFD))
-      ENDDO
+      do ifd = 1,nfl
+         call calrh(pfd(:,:,ifd),tfd(:,:,ifd),qfd(:,:,ifd),rhfd(:,:,ifd))
+      enddo
 
-!        COMPUTE SLR
+!        compute slr
 
-      SLR = SPVAL
+      slr = spval
 
 !$omp parallel do private(i,j)      
-      DO J=JSTA,JEND
-      DO I=ISTA,IEND
-      IF(ZSFC(I,J)<SPVAL) THEN
-      IF(TFD(I,J,1)<SPVAL .AND. UFD(I,J,1)<SPVAL .AND. VFD(I,J,1)<SPVAL) THEN
-         SWND(1)=sqrt(UFD(I,J,1)*UFD(I,J,1)+VFD(I,J,1)*VFD(I,J,1))
-         SWND(2)=sqrt(UFD(I,J,2)*UFD(I,J,2)+VFD(I,J,2)*VFD(I,J,2))
-         SWND(3)=sqrt(UFD(I,J,3)*UFD(I,J,3)+VFD(I,J,3)*VFD(I,J,3))
-         SWND(4)=sqrt(UFD(I,J,4)*UFD(I,J,4)+VFD(I,J,4)*VFD(I,J,4))
-         SWND(5)=sqrt(UFD(I,J,5)*UFD(I,J,5)+VFD(I,J,5)*VFD(I,J,5))
-         SWND(6)=sqrt(UFD(I,J,6)*UFD(I,J,6)+VFD(I,J,6)*VFD(I,J,6))
-         SWND(7)=sqrt(UFD(I,J,7)*UFD(I,J,7)+VFD(I,J,7)*VFD(I,J,7))
-         SWND(8)=sqrt(UFD(I,J,8)*UFD(I,J,8)+VFD(I,J,8)*VFD(I,J,8))
+      do j=jsta,jend
+      do i=ista,iend
+      if(zsfc(i,j)<spval) then
+      if(tfd(i,j,1)<spval .and. ufd(i,j,1)<spval .and. vfd(i,j,1)<spval) then
+         swnd(1)=sqrt(ufd(i,j,1)*ufd(i,j,1)+vfd(i,j,1)*vfd(i,j,1))
+         swnd(2)=sqrt(ufd(i,j,2)*ufd(i,j,2)+vfd(i,j,2)*vfd(i,j,2))
+         swnd(3)=sqrt(ufd(i,j,3)*ufd(i,j,3)+vfd(i,j,3)*vfd(i,j,3))
+         swnd(4)=sqrt(ufd(i,j,4)*ufd(i,j,4)+vfd(i,j,4)*vfd(i,j,4))
+         swnd(5)=sqrt(ufd(i,j,5)*ufd(i,j,5)+vfd(i,j,5)*vfd(i,j,5))
+         swnd(6)=sqrt(ufd(i,j,6)*ufd(i,j,6)+vfd(i,j,6)*vfd(i,j,6))
+         swnd(7)=sqrt(ufd(i,j,7)*ufd(i,j,7)+vfd(i,j,7)*vfd(i,j,7))
+         swnd(8)=sqrt(ufd(i,j,8)*ufd(i,j,8)+vfd(i,j,8)*vfd(i,j,8))
 
-         SLR(I,J) = s03*SWND(1)+s06*SWND(2)+s09*SWND(3)+s12*SWND(4) &
-                  + s15*SWND(5)+s18*SWND(6)+s21*SWND(7)+s24*SWND(8) &
-                  + t03*TFD(I,J,1)+t06*TFD(I,J,2)+t09*TFD(I,J,3)+t12*TFD(I,J,4) &
-                  + t15*TFD(I,J,5)+t18*TFD(I,J,6)+t21*TFD(I,J,7)+t24*TFD(I,J,8) &
-                  + r03*RHFD(I,J,1)+r06*RHFD(I,J,2)+r09*RHFD(I,J,3)+r12*RHFD(I,J,4) &
-                  + r15*RHFD(I,J,5)+r18*RHFD(I,J,6)+r21*RHFD(I,J,7)+r24*RHFD(I,J,8) &
+         slr(i,j) = s03*swnd(1)+s06*swnd(2)+s09*swnd(3)+s12*swnd(4) &
+                  + s15*swnd(5)+s18*swnd(6)+s21*swnd(7)+s24*swnd(8) &
+                  + t03*tfd(i,j,1)+t06*tfd(i,j,2)+t09*tfd(i,j,3)+t12*tfd(i,j,4) &
+                  + t15*tfd(i,j,5)+t18*tfd(i,j,6)+t21*tfd(i,j,7)+t24*tfd(i,j,8) &
+                  + r03*rhfd(i,j,1)+r06*rhfd(i,j,2)+r09*rhfd(i,j,3)+r12*rhfd(i,j,4) &
+                  + r15*rhfd(i,j,5)+r18*rhfd(i,j,6)+r21*rhfd(i,j,7)+r24*rhfd(i,j,8) &
                   + b
-         SLR(I,J) = max(SLR(I,J),3.)
-      ENDIF
-      ENDIF
-      ENDDO
-      ENDDO
+         slr(i,j) = max(slr(i,j),3.)
+      endif
+      endif
+      enddo
+      enddo
 
-!        COMPUTE WETBULB TEMPERATURE AND SEARCH FOR TWET > 0.5C
+!        compute wetbulb temperature and search for twet > 0.5c
 
-      KARR = 1
-      CALL WETBULB(T,Q,PMID,HTM,KARR,TWET)
+      karr = 1
+      call wetbulb(t,q,pmid,htm,karr,twet)
 
 !$omp parallel do private(i,j)      
-      DO J=JSTA,JEND
-      DO I=ISTA,IEND
-         ZWET(I,J)=ZMID(I,J,LM)
-         TWET05(I,J)=-1
-      ENDDO
-      ENDDO
+      do j=jsta,jend
+      do i=ista,iend
+         zwet(i,j)=zmid(i,j,lm)
+         twet05(i,j)=-1
+      enddo
+      enddo
 
-      DO L=1,LM
+      do l=1,lm
 !$omp parallel do private(i,j)
-      DO J=JSTA,JEND
-      DO I=ISTA,IEND
-         IF(TWET05(I,J) < 0) THEN
-            IF(TWET(I,J,L) >= 273.15+0.5) THEN
-               ZWET(I,J)=ZMID(I,J,L)
-               TWET05(I,J)=1
-            ENDIF
-         ENDIF
-      ENDDO
-      ENDDO
-      ENDDO
+      do j=jsta,jend
+      do i=ista,iend
+         if(twet05(i,j) < 0) then
+            if(twet(i,j,l) >= 273.15+0.5) then
+               zwet(i,j)=zmid(i,j,l)
+               twet05(i,j)=1
+            endif
+         endif
+      enddo
+      enddo
+      enddo
 
-!$omp parallel do private(i,j,HTABH)      
-      DO J=JSTA,JEND
-      DO I=ISTA,IEND
-         IF(TWET05(I,J) > 0 .AND. SLR(I,J)<SPVAL) THEN
-            HTABH=ZWET(I,J)-ZINT(I,J,LM+1)
-            IF(HTABH<0.) HTABH=0.
-            SLR(I,J)=SLR(I,J)*(1.-HTABH/200.)
-            IF(SLR(I,J)<0.) SLR(I,J)=0.
-         ENDIF
-      ENDDO
-      ENDDO
+!$omp parallel do private(i,j,htabh)      
+      do j=jsta,jend
+      do i=ista,iend
+         if(twet05(i,j) > 0 .and. slr(i,j)<spval) then
+            htabh=zwet(i,j)-zint(i,j,lm+1)
+            if(htabh<0.) htabh=0.
+            slr(i,j)=slr(i,j)*(1.-htabh/200.)
+            if(slr(i,j)<0.) slr(i,j)=0.
+         endif
+      enddo
+      enddo
 
-      DEALLOCATE (TWET)
+      deallocate (twet)
 
-      END SUBROUTINE CALSLR_UUTAH2
+      end subroutine calslr_uutah2
 !
 !-------------------------------------------------------------------------------------
 !
