@@ -39,6 +39,7 @@
 !> 2023-08-24 | Y Mao           | Add gtg_on option for GTG interpolation
 !> 2023-09-12 | J Kenyon        | Prevent spurious supercooled rain and cloud water
 !> 2024-04-23 | E James         | Adding smoke emissions (ebb) from RRFS
+!> 2024-12-12 | J Meng          | Adding UUtah 2024 SLR algorithm
 !>
 !> @author T Black W/NP2 @date 1999-09-23
 !--------------------------------------------------------------------------------------
